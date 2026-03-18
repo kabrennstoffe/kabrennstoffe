@@ -183,29 +183,6 @@ Math.sin(dLon/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// --------------------
-// Samstag prüfen
-// --------------------
-flatpickr("#datum", {
-    dateFormat: "Y-m-d",
-
-    // Nur Samstage erlauben
-    enable: [
-        function(date) {
-            return date.getDay() === 6; // 6 = Samstag
-        }
-    ],
-
-    // Andere Tage grau machen
-    disable: [
-        function(date) {
-            return date.getDay() !== 6;
-        }
-    ],
-
-    // Optional: verhindert Mobile-Probleme
-    disableMobile: true
-});
 
 // --------------------
 // BUTTON
