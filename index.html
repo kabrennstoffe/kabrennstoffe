@@ -69,6 +69,8 @@ text-align:center;
 <option value="12-16">12–16</option>
 </select>
 
+<div id="plaetzeInfo" style="margin:8px 0; font-weight:bold;"></div>
+
 <button id="btn">Termin anfragen</button>
 
 <div id="meldung"></div>
@@ -88,28 +90,40 @@ const supabaseClient = supabase.createClient(
 
 const MAX_TERMINE_PRO_SAMSTAG = 5;
 
-// Funktion: Buchungen laden
-async function ladeAusgebuchteSamstage() {
+// Buchungen überprüfen
+
+async function aktualisierePlaetze(){
+
+    const datum = document.getElementById("datum").value;
+    const zeit = document.getElementById("zeit").value;
+    const info = document.getElementById("plaetzeInfo");
+
+    if(!datum || !zeit){
+        info.innerText = "";
+        return;
+    }
 
     let { data, error } = await supabaseClient
         .from("buchungen")
-        .select("datum");
+        .select("id")
+        .eq("datum", datum)
+        .eq("zeit", zeit);
 
     if(error){
         console.log(error);
-        return [];
+        return;
     }
 
-    let zaehler = {};
+    let belegt = data.length;
+    let frei = MAX_PLAETZE_PRO_ZEITFENSTER - belegt;
 
-    data.forEach(e => {
-        if(!zaehler[e.datum]){
-            zaehler[e.datum] = 0;
-        }
-        zaehler[e.datum]++;
-    });
-
-    return zaehler;
+    if(frei <= 0){
+        info.style.color = "red";
+        info.innerText = "🔴 Ausgebucht";
+    }else{
+        info.style.color = "green";
+        info.innerText = "🟢 Noch " + frei + " Plätze frei";
+    }
 }
 
 // Kalender starten
@@ -124,18 +138,25 @@ document.addEventListener("DOMContentLoaded", function(){
     }
 
     flatpickr(feld, {
+
         dateFormat: "Y-m-d",
         minDate: "today",
-        disableMobile: false, // wichtig!
+        disableMobile: false,
+
         enable: [
             function(date){
                 return date.getDay() === 6; // nur Samstag
             }
-        ]
+        ],
+
+        onChange: function(){
+            aktualisierePlaetze();
+        }
+
     });
 
 });
-    
+
 // --------------------
 // Firmenkoordinaten
 // --------------------
@@ -252,6 +273,16 @@ meldung.innerText="Systemfehler";
 btn.disabled=false;
 }
 
+});
+
+document.getElementById("datum").addEventListener("change", function(){
+    setTimeout(aktualisierePlaetze, 100);
+});
+
+document.getElementById("zeit").addEventListener("change", aktualisierePlaetze);
+
+window.addEventListener("load", function(){
+    setTimeout(aktualisierePlaetze, 200);
 });
 
 </script>
