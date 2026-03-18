@@ -64,6 +64,8 @@ text-align:center;
 <input type="tel" id="telefon" placeholder="Telefon">
 <input type="text" id="adresse" placeholder="Adresse">
 
+<div id="vorschlaege" style="background:white; border:1px solid #ccc; border-radius:8px; max-height:200px; overflow-y:auto;"></div>
+
 <select id="zeit">
 <option value="08-12">08–12</option>
 <option value="12-16">12–16</option>
@@ -79,11 +81,29 @@ text-align:center;
 
 <script>
 
-console.log("SCRIPT WIRD GELADEN");
+let kundenLat = null;
+let kundenLon = null;
 
+// ✅ Distanzfunktion GLOBAL
+function berechneEntfernung(lat1, lon1, lat2, lon2){
+    const R = 6371;
+
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
 
 // --------------------
-// Supabase EINSTELLEN
+// Supabase
 // --------------------
 const supabaseClient = supabase.createClient(
 "https://xekjyyiovmmsmmjgrmyz.supabase.co",
@@ -92,10 +112,10 @@ const supabaseClient = supabase.createClient(
 
 const MAX_PLAETZE_PRO_ZEITFENSTER = 5;
 
-// Buchungen überprüfen
-
+// --------------------
+// Plätze prüfen
+// --------------------
 async function aktualisierePlaetze(){
-console.log("Funktion läuft");
 
     const datum = document.getElementById("datum").value;
     const zeit = document.getElementById("zeit").value;
@@ -117,8 +137,7 @@ console.log("Funktion läuft");
         return;
     }
 
-    let belegt = data.length;
-    let frei = MAX_PLAETZE_PRO_ZEITFENSTER - belegt;
+    let frei = MAX_PLAETZE_PRO_ZEITFENSTER - data.length;
 
     if(frei <= 0){
         info.style.color = "red";
@@ -129,162 +148,186 @@ console.log("Funktion läuft");
     }
 }
 
-// Kalender starten
-
+// --------------------
+// Kalender
+// --------------------
 document.addEventListener("DOMContentLoaded", function(){
 
     const feld = document.getElementById("datum");
 
     flatpickr(feld, {
-
         dateFormat: "Y-m-d",
         minDate: "today",
-        disableMobile: false,
-
-        enable: [
-            function(date){
-                return date.getDay() === 6;
-            }
-        ]
-
+        enable: [date => date.getDay() === 6]
     });
 
-    // 👇 WICHTIG: eigenes Event für Wertänderung
-    feld.addEventListener("change", function(){
-        aktualisierePlaetze();
-    });
-
+    feld.addEventListener("change", aktualisierePlaetze);
+    document.getElementById("zeit").addEventListener("change", aktualisierePlaetze);
 });
 
 // --------------------
-// Firmenkoordinaten
+// Firma laden
 // --------------------
-const firmenAdresse = "Marschallstr 2 Dortmund";
+const firmenAdresse = "Marschallstr 2, 44359 Dortmund";
 const maximalerRadius = 30;
 
 let firmenLat = null;
 let firmenLon = null;
 
 async function ladeFirma(){
-try{
-let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firmenAdresse)}`);
-let data = await res.json();
-if(data.length>0){
-firmenLat = parseFloat(data[0].lat);
-firmenLon = parseFloat(data[0].lon);
+
+    try{
+        let url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("format", "json");
+        url.searchParams.set("limit", "1");
+        url.searchParams.set("q", firmenAdresse);
+
+        let res = await fetch(url);
+        let data = await res.json();
+
+        if(data.length > 0){
+            firmenLat = parseFloat(data[0].lat);
+            firmenLon = parseFloat(data[0].lon);
+        }
+
+    }catch(e){
+        console.log("Fehler Firma:", e);
+    }
 }
-}catch(e){
-console.log("Fehler Firma:",e);
-}
-}
+
 ladeFirma();
 
 // --------------------
-// Distanzberechnung
+// Adress-Suche
 // --------------------
-function distanz(lat1, lon1, lat2, lon2){
-const R = 6371;
-const dLat = (lat2-lat1)*Math.PI/180;
-const dLon = (lon2-lon1)*Math.PI/180;
-const a = Math.sin(dLat/2)**2 +
-Math.cos(lat1*Math.PI/180) *
-Math.cos(lat2*Math.PI/180) *
-Math.sin(dLon/2)**2;
-return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
+let sucheTimeout;
 
+document.getElementById("adresse").addEventListener("input", function () {
+
+    kundenLat = null;
+    kundenLon = null;
+
+    clearTimeout(sucheTimeout);
+
+    const query = this.value.trim();
+    const box = document.getElementById("vorschlaege");
+
+    if (query.length < 3) {
+        box.style.display = "none";
+        return;
+    }
+
+    sucheTimeout = setTimeout(async () => {
+
+        try {
+            let url = new URL("https://nominatim.openstreetmap.org/search");
+            url.searchParams.set("format", "json");
+            url.searchParams.set("q", query);
+            url.searchParams.set("countrycodes", "de");
+            url.searchParams.set("limit", "5");
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            box.innerHTML = "";
+
+            if (data.length === 0) {
+                box.style.display = "none";
+                return;
+            }
+
+            data.forEach(e => {
+
+                const div = document.createElement("div");
+                div.innerText = e.display_name;
+                div.style.padding = "10px";
+                div.style.cursor = "pointer";
+                div.style.borderBottom = "1px solid #eee";
+
+                div.addEventListener("click", function () {
+                    document.getElementById("adresse").value = e.display_name;
+
+                    kundenLat = parseFloat(e.lat);
+                    kundenLon = parseFloat(e.lon);
+
+                    box.style.display = "none";
+                });
+
+                box.appendChild(div);
+            });
+
+            box.style.display = "block";
+
+        } catch (err) {
+            console.log("Adressfehler:", err);
+        }
+
+    }, 500);
+});
 
 // --------------------
 // BUTTON
 // --------------------
 document.getElementById("btn").addEventListener("click", async function(){
 
-let meldung = document.getElementById("meldung");
-let btn = this;
+    let meldung = document.getElementById("meldung");
 
-try{
+    try{
 
-let datum = document.getElementById("datum").value;
-let vorname = document.getElementById("vorname").value.trim();
-let nachname = document.getElementById("nachname").value.trim();
-let telefon = document.getElementById("telefon").value.trim();
-let adresse = document.getElementById("adresse").value.trim();
-let zeit = document.getElementById("zeit").value;
+        let datum = document.getElementById("datum").value;
+        let vorname = document.getElementById("vorname").value.trim();
+        let nachname = document.getElementById("nachname").value.trim();
+        let telefon = document.getElementById("telefon").value.trim();
+        let adresse = document.getElementById("adresse").value.trim();
+        let zeit = document.getElementById("zeit").value;
 
-if(!datum || !vorname || !nachname || !telefon || !adresse){
-meldung.innerText="Bitte alle Felder ausfüllen";
-return;
-}
+        if(!datum || !vorname || !nachname || !telefon || !adresse){
+            meldung.innerText="Bitte alle Felder ausfüllen";
+            return;
+        }
 
-if(!firmenLat){
-meldung.innerText="System lädt noch, bitte erneut versuchen";
-return;
-}
+        if(!kundenLat || !kundenLon){
+            meldung.innerText = "Bitte Adresse aus der Liste auswählen";
+            return;
+        }
 
-meldung.innerText="⏳ Prüfe...";
-btn.disabled=true;
+        if(!firmenLat || !firmenLon){
+            meldung.innerText = "System lädt noch...";
+            return;
+        }
 
-// Adresse prüfen
-let geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresse)}`);
-let geoData = await geo.json();
+        const entfernung = berechneEntfernung(
+            firmenLat,
+            firmenLon,
+            kundenLat,
+            kundenLon
+        );
 
-if(geoData.length===0){
-meldung.innerText="Adresse nicht gefunden";
-btn.disabled=false;
-return;
-}
+        if(entfernung > maximalerRadius){
+            meldung.innerText = "❌ Außerhalb (" + entfernung.toFixed(1) + " km)";
+            return;
+        }
 
-let kundenLat = parseFloat(geoData[0].lat);
-let kundenLon = parseFloat(geoData[0].lon);
+        meldung.innerText="Speichere...";
 
-let entfernung = distanz(firmenLat,firmenLon,kundenLat,kundenLon);
+        const { error } = await supabaseClient
+            .from("buchungen")
+            .insert([{ datum, zeit, vorname, nachname, telefon, adresse }]);
 
-if(entfernung > maximalerRadius){
-meldung.innerText="Außerhalb Liefergebiet (30km)";
-btn.disabled=false;
-return;
-}
+        if(error){
+            console.log(error);
+            meldung.innerText="Fehler beim Speichern";
+            return;
+        }
 
-// Speichern
-let { error } = await supabaseClient
-.from("buchungen")
-.insert([{
-datum,
-vorname,
-nachname,
-telefon,
-adresse,
-zeit
-}]);
+        meldung.innerText="✅ Termin gespeichert!";
 
-if(error){
-console.log(error);
-meldung.innerText="Fehler: " + error.message;
-}else{
-meldung.innerText="✅ Termin erfolgreich gespeichert!";
-}
-
-btn.disabled=false;
-
-}catch(err){
-console.log(err);
-meldung.innerText="Systemfehler";
-btn.disabled=false;
-}
-
-});
-
-document.getElementById("datum").addEventListener("change", function(){
-    setTimeout(aktualisierePlaetze, 100);
-});
-
-document.getElementById("zeit").addEventListener("change", aktualisierePlaetze);
-
-window.addEventListener("load", function(){
-    setTimeout(aktualisierePlaetze, 200);
+    }catch(err){
+        console.log(err);
+        meldung.innerText="Technischer Fehler";
+    }
 });
 
 </script>
-
 </body>
 </html>
