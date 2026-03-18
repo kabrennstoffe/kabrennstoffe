@@ -86,6 +86,73 @@ const supabaseClient = supabase.createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla2p5eWlvdm1tc21tamdybXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc5MzAsImV4cCI6MjA4OTMxMzkzMH0.E6aDb2tMI3tByJaZkzl1BCGCvWIoxQrXknn1xo5ocBs"
 );
 
+const MAX_TERMINE_PRO_SAMSTAG = 5;
+
+// Funktion: Buchungen laden
+async function ladeAusgebuchteSamstage() {
+
+    let { data, error } = await supabaseClient
+        .from("buchungen")
+        .select("datum");
+
+    if(error){
+        console.log(error);
+        return [];
+    }
+
+    let zaehler = {};
+
+    data.forEach(e => {
+        if(!zaehler[e.datum]){
+            zaehler[e.datum] = 0;
+        }
+        zaehler[e.datum]++;
+    });
+
+    return zaehler;
+}
+
+// Kalender starten
+async function starteKalender() {
+
+    let belegung = await ladeAusgebuchteSamstage();
+
+    flatpickr("#datum", {
+
+        dateFormat: "Y-m-d",
+
+        enable: [
+            function(date) {
+                return date.getDay() === 6;
+            }
+        ],
+
+        disable: [
+            function(date) {
+
+                let iso = date.toISOString().split("T")[0];
+
+                // Vergangenheit sperren
+                if(date < new Date().setHours(0,0,0,0)){
+                    return true;
+                }
+
+                // Wenn Samstag voll → deaktivieren
+                if(belegung[iso] >= MAX_TERMINE_PRO_SAMSTAG){
+                    return true;
+                }
+
+                return date.getDay() !== 6;
+            }
+        ],
+
+        disableMobile: true
+
+    });
+}
+
+starteKalender();
+    
 // --------------------
 // Firmenkoordinaten
 // --------------------
@@ -122,30 +189,6 @@ Math.cos(lat2*Math.PI/180) *
 Math.sin(dLon/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-
-// --------------------
-// Samstag prüfen
-// --------------------
-flatpickr("#datum", {
-    dateFormat: "Y-m-d",
-
-    // Nur Samstage erlauben
-    enable: [
-        function(date) {
-            return date.getDay() === 6; // 6 = Samstag
-        }
-    ],
-
-    // Andere Tage grau machen
-    disable: [
-        function(date) {
-            return date.getDay() !== 6;
-        }
-    ],
-
-    // Optional: verhindert Mobile-Probleme
-    disableMobile: true
-});
 
 // --------------------
 // BUTTON
