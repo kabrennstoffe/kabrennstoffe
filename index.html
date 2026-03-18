@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
-    
+
 <head>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -59,7 +59,6 @@ text-align:center;
 <h2>📅 Termin buchen</h2>
 
 <input type="date" id="datum" placeholder="Datum Wählen" readonly> 
-<div id="plaetzeInfo" style="margin:8px 0; font-weight:bold;"></div>
 <input type="text" id="vorname" placeholder="Vorname">
 <input type="text" id="nachname" placeholder="Nachname">
 <input type="tel" id="telefon" placeholder="Telefon">
@@ -91,74 +90,73 @@ const MAX_TERMINE_PRO_SAMSTAG = 5;
 
 // Funktion: Buchungen laden
 async function ladeAusgebuchteSamstage() {
-async function aktualisierePlaetze(gewähltesDatum){
-
-    const info = document.getElementById("plaetzeInfo");
-
-    if(!gewähltesDatum){
-        info.innerText = "";
-        return;
-    }
 
 let { data, error } = await supabaseClient
 .from("buchungen")
-        .select("datum");
-        .select("id")
-        .eq("datum", gewähltesDatum);
+.select("datum");
 
 if(error){
 console.log(error);
-        return [];
-        return;
+return [];
 }
 
-    let zaehler = {};
+let zaehler = {};
 
-    data.forEach(e => {
-        if(!zaehler[e.datum]){
-            zaehler[e.datum] = 0;
-        }
-        zaehler[e.datum]++;
-    });
-    let belegt = data.length;
-    let frei = MAX_TERMINE_PRO_SAMSTAG - belegt;
+data.forEach(e => {
+if(!zaehler[e.datum]){
+zaehler[e.datum] = 0;
+}
+zaehler[e.datum]++;
+});
 
-    return zaehler;
-    if(frei <= 0){
-        info.style.color = "red";
-        info.innerText = "🔴 Ausgebucht";
-    }else{
-        info.style.color = "green";
-        info.innerText = "🟢 Noch " + frei + " Plätze frei";
-    }
+return zaehler;
 }
 
+// Kalender starten
+async function starteKalender() {
+
+    let belegung = await ladeAusgebuchteSamstage();
 // Funktion: Start Kalender
-
+    
 function startKalender(){
 
 flatpickr("#datum", {
 
 dateFormat: "Y-m-d",
 
-// Nur zukünftige Samstage erlauben
+        // Nur zukünftige Samstage erlauben
 enable: [
-function(date){
+            function(date) {
+                return date.getDay() === 6;
+            }
+        ],
 
-const heute = new Date();
-heute.setHours(0,0,0,0);
+        disable: [
+            function(date) {
+            function(date){
 
-// Nur Samstag
-if(date.getDay() !== 6){
-return false;
+                let iso = date.toISOString().split("T")[0];
+                const heute = new Date();
+                heute.setHours(0,0,0,0);
+
+                // Vergangenheit sperren
+                if(date < new Date().setHours(0,0,0,0)){
+                    return true;
+                // Nur Samstag
+                if(date.getDay() !== 6){
+                    return false;
 }
 
-// Keine Vergangenheit
-if(date < heute){
-return false;
+                // Wenn Samstag voll → deaktivieren
+                if(belegung[iso] >= MAX_TERMINE_PRO_SAMSTAG){
+                    return true;
+                // Keine Vergangenheit
+                if(date < heute){
+                    return false;
 }
 
-return true;
+                return date.getDay() !== 6;
+                return true;
 }
 ],
 
@@ -168,10 +166,7 @@ disableMobile: true
 
 }
 
-    
-document.getElementById("datum").addEventListener("change", function(){
-    aktualisierePlaetze(this.value);
-});
+starteKalender();
 startKalender();
 
 // --------------------
