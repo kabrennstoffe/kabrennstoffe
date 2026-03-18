@@ -116,36 +116,26 @@ async function ladeAusgebuchteSamstage() {
 
 document.addEventListener("DOMContentLoaded", function(){
 
-    flatpickr("#datum", {
+    const feld = document.getElementById("datum");
 
+    if(!feld){
+        console.log("Datum Feld nicht gefunden");
+        return;
+    }
+
+    flatpickr(feld, {
         dateFormat: "Y-m-d",
-
-        // Nur Samstage erlauben
+        minDate: "today",
+        disableMobile: false, // wichtig!
         enable: [
             function(date){
-
-                const heute = new Date();
-                heute.setHours(0,0,0,0);
-
-                // Nur Samstag (6)
-                if(date.getDay() !== 6){
-                    return false;
-                }
-
-                // Keine Vergangenheit
-                if(date < heute){
-                    return false;
-                }
-
-                return true;
+                return date.getDay() === 6; // nur Samstag
             }
-        ],
-
-        disableMobile: true
+        ]
     });
 
-});    
-
+});
+    
 // --------------------
 // Firmenkoordinaten
 // --------------------
