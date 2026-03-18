@@ -90,19 +90,25 @@ const supabaseClient = supabase.createClient(
 const MAX_TERMINE_PRO_SAMSTAG = 5;
 
 // Funktion: Buchungen laden
-async function aktualisierePlaetze(gewähltesDatum){
+    
+async function aktualisiereZeitPlaetze(){
 
+    const datum = document.getElementById("datum").value;
+    const zeit = document.getElementById("zeit").value;
     const info = document.getElementById("plaetzeInfo");
+    const btn = document.getElementById("btn");
 
-    if(!gewähltesDatum){
+    if(!datum || !zeit){
         info.innerText = "";
+        btn.disabled = false;
         return;
     }
 
     let { data, error } = await supabaseClient
         .from("buchungen")
         .select("id")
-        .eq("datum", gewähltesDatum);
+        .eq("datum", datum)
+        .eq("zeit", zeit);
 
     if(error){
         console.log(error);
@@ -110,14 +116,16 @@ async function aktualisierePlaetze(gewähltesDatum){
     }
 
     let belegt = data.length;
-    let frei = MAX_TERMINE_PRO_SAMSTAG - belegt;
+    let frei = MAX_TERMINE_PRO_ZEITFENSTER - belegt;
 
     if(frei <= 0){
         info.style.color = "red";
-        info.innerText = "🔴 Ausgebucht";
+        info.innerText = "🔴 Dieses Zeitfenster ist ausgebucht";
+        btn.disabled = true;
     }else{
         info.style.color = "green";
         info.innerText = "🟢 Noch " + frei + " Plätze frei";
+        btn.disabled = false;
     }
 }
 // Funktion: Start Kalender
