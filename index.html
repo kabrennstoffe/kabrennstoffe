@@ -112,46 +112,42 @@ async function ladeAusgebuchteSamstage() {
     return zaehler;
 }
 
-// Kalender starten
-async function starteKalender() {
-
-    let belegung = await ladeAusgebuchteSamstage();
+// Funktion: Start Kalender
+    
+function startKalender(){
 
     flatpickr("#datum", {
 
         dateFormat: "Y-m-d",
 
+        // Nur zukünftige Samstage erlauben
         enable: [
-            function(date) {
-                return date.getDay() === 6;
-            }
-        ],
+            function(date){
 
-        disable: [
-            function(date) {
+                const heute = new Date();
+                heute.setHours(0,0,0,0);
 
-                let iso = date.toISOString().split("T")[0];
-
-                // Vergangenheit sperren
-                if(date < new Date().setHours(0,0,0,0)){
-                    return true;
+                // Nur Samstag
+                if(date.getDay() !== 6){
+                    return false;
                 }
 
-                // Wenn Samstag voll → deaktivieren
-                if(belegung[iso] >= MAX_TERMINE_PRO_SAMSTAG){
-                    return true;
+                // Keine Vergangenheit
+                if(date < heute){
+                    return false;
                 }
 
-                return date.getDay() !== 6;
+                return true;
             }
         ],
 
         disableMobile: true
 
     });
+
 }
 
-starteKalender();
+startKalender();
     
 // --------------------
 // Firmenkoordinaten
