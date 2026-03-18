@@ -79,6 +79,8 @@ text-align:center;
 
 <script>
 
+console.log("SCRIPT WIRD GELADEN");
+
 
 // --------------------
 // Supabase EINSTELLEN
@@ -88,11 +90,12 @@ const supabaseClient = supabase.createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla2p5eWlvdm1tc21tamdybXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc5MzAsImV4cCI6MjA4OTMxMzkzMH0.E6aDb2tMI3tByJaZkzl1BCGCvWIoxQrXknn1xo5ocBs"
 );
 
-const MAX_TERMINE_PRO_SAMSTAG = 5;
+const MAX_PLAETZE_PRO_ZEITFENSTER = 5;
 
 // Buchungen überprüfen
 
 async function aktualisierePlaetze(){
+console.log("Funktion läuft");
 
     const datum = document.getElementById("datum").value;
     const zeit = document.getElementById("zeit").value;
@@ -132,11 +135,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
     const feld = document.getElementById("datum");
 
-    if(!feld){
-        console.log("Datum Feld nicht gefunden");
-        return;
-    }
-
     flatpickr(feld, {
 
         dateFormat: "Y-m-d",
@@ -145,14 +143,15 @@ document.addEventListener("DOMContentLoaded", function(){
 
         enable: [
             function(date){
-                return date.getDay() === 6; // nur Samstag
+                return date.getDay() === 6;
             }
-        ],
+        ]
 
-        onChange: function(){
-            aktualisierePlaetze();
-        }
+    });
 
+    // 👇 WICHTIG: eigenes Event für Wertänderung
+    feld.addEventListener("change", function(){
+        aktualisierePlaetze();
     });
 
 });
