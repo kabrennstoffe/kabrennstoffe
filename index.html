@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="de">
+    
 <head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terminbuchung</title>
@@ -74,7 +77,6 @@ button{
 
 <script>
 
-alert("JS läuft");
 
 // --------------------
 // Supabase EINSTELLEN
@@ -124,16 +126,25 @@ return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 // --------------------
 // Samstag prüfen
 // --------------------
-document.getElementById("datum").addEventListener("change", function(){
+flatpickr("#datum", {
+    dateFormat: "Y-m-d",
 
-let parts = this.value.split("-");
-let d = new Date(parts[0], parts[1]-1, parts[2]);
+    // Nur Samstage erlauben
+    enable: [
+        function(date) {
+            return date.getDay() === 6; // 6 = Samstag
+        }
+    ],
 
-if(d.getDay() !== 6){
-alert("Nur Samstag möglich!");
-this.value="";
-}
+    // Andere Tage grau machen
+    disable: [
+        function(date) {
+            return date.getDay() !== 6;
+        }
+    ],
 
+    // Optional: verhindert Mobile-Probleme
+    disableMobile: true
 });
 
 // --------------------
