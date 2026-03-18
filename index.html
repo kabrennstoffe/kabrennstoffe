@@ -90,9 +90,28 @@ const supabaseClient = supabase.createClient(
 // 🔥 LIMIT PRO ZEITFENSTER
 const MAX_TERMINE_PRO_ZEITFENSTER = 5;
 
+});
+startKalender();
+
+Diese zusätzliche }); zerstört die komplette Script-Ausführung.
+
+Wenn JavaScript dort abstürzt →
+👉 Flatpickr wird nicht richtig initialisiert
+👉 Das Datumfeld reagiert nicht
+
+✅ SO MUSS ES KORREKT SEIN
+
+Wichtig:
+Es darf keine zusätzliche Klammer vor startKalender() stehen.
+
+🔥 KORREKTE KALENDER-INITIALISIERUNG
+
+Ersetze deinen Kalender-Teil komplett durch diesen:
+
 // --------------------
-// KALENDER
+// KALENDER STARTEN
 // --------------------
+
 function startKalender(){
 
     flatpickr("#datum", {
@@ -124,6 +143,7 @@ function startKalender(){
 
 }
 
+// WICHTIG: direkt aufrufen
 startKalender();
 
 
