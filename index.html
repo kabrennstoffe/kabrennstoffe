@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terminbuchung</title>
@@ -9,42 +12,42 @@
 
 <style>
 body{
-    font-family: Arial, sans-serif;
-    background:#eef2f7;
-    padding:15px;
+font-family: Arial, sans-serif;
+background:#eef2f7;
+padding:15px;
 }
 
 .container{
-    max-width:500px;
-    margin:auto;
-    background:white;
-    padding:20px;
-    border-radius:12px;
+max-width:500px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:12px;
 }
 
 h2{
-    text-align:center;
+text-align:center;
 }
 
 input,select,button{
-    width:100%;
-    padding:14px;
-    margin:6px 0;
-    font-size:16px;
-    border-radius:8px;
-    border:1px solid #ccc;
+width:100%;
+padding:14px;
+margin:6px 0;
+font-size:16px;
+border-radius:8px;
+border:1px solid #ccc;
 }
 
 button{
-    background:#2e5d44;
-    color:white;
-    border:none;
-    font-weight:bold;
+background:#2e5d44;
+color:white;
+border:none;
+font-weight:bold;
 }
 
 #meldung{
-    margin-top:10px;
-    text-align:center;
+margin-top:10px;
+text-align:center;
 }
 </style>
 </head>
@@ -55,7 +58,8 @@ button{
 
 <h2>📅 Termin buchen</h2>
 
-<input type="date" id="datum">
+<input type="date" id="datum" placeholder="Datum Wählen" readonly> 
+<div id="plaetzeInfo" style="margin:8px 0; font-weight:bold;"></div>
 <input type="text" id="vorname" placeholder="Vorname">
 <input type="text" id="nachname" placeholder="Nachname">
 <input type="tel" id="telefon" placeholder="Telefon">
@@ -82,6 +86,93 @@ const supabaseClient = supabase.createClient(
 "https://xekjyyiovmmsmmjgrmyz.supabase.co",
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla2p5eWlvdm1tc21tamdybXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc5MzAsImV4cCI6MjA4OTMxMzkzMH0.E6aDb2tMI3tByJaZkzl1BCGCvWIoxQrXknn1xo5ocBs"
 );
+
+const MAX_TERMINE_PRO_SAMSTAG = 5;
+
+// Funktion: Buchungen laden
+async function ladeAusgebuchteSamstage() {
+async function aktualisierePlaetze(gewähltesDatum){
+
+    const info = document.getElementById("plaetzeInfo");
+
+    if(!gewähltesDatum){
+        info.innerText = "";
+        return;
+    }
+
+let { data, error } = await supabaseClient
+.from("buchungen")
+        .select("datum");
+        .select("id")
+        .eq("datum", gewähltesDatum);
+
+if(error){
+console.log(error);
+        return [];
+        return;
+}
+
+    let zaehler = {};
+
+    data.forEach(e => {
+        if(!zaehler[e.datum]){
+            zaehler[e.datum] = 0;
+        }
+        zaehler[e.datum]++;
+    });
+    let belegt = data.length;
+    let frei = MAX_TERMINE_PRO_SAMSTAG - belegt;
+
+    return zaehler;
+    if(frei <= 0){
+        info.style.color = "red";
+        info.innerText = "🔴 Ausgebucht";
+    }else{
+        info.style.color = "green";
+        info.innerText = "🟢 Noch " + frei + " Plätze frei";
+    }
+}
+
+// Funktion: Start Kalender
+
+function startKalender(){
+
+flatpickr("#datum", {
+
+dateFormat: "Y-m-d",
+
+// Nur zukünftige Samstage erlauben
+enable: [
+function(date){
+
+const heute = new Date();
+heute.setHours(0,0,0,0);
+
+// Nur Samstag
+if(date.getDay() !== 6){
+return false;
+}
+
+// Keine Vergangenheit
+if(date < heute){
+return false;
+}
+
+return true;
+}
+],
+
+disableMobile: true
+
+});
+
+}
+
+    
+document.getElementById("datum").addEventListener("change", function(){
+    aktualisierePlaetze(this.value);
+});
+startKalender();
 
 // --------------------
 // Firmenkoordinaten
@@ -119,21 +210,6 @@ Math.cos(lat2*Math.PI/180) *
 Math.sin(dLon/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-
-// --------------------
-// Samstag prüfen
-// --------------------
-document.getElementById("datum").addEventListener("change", function(){
-
-let parts = this.value.split("-");
-let d = new Date(parts[0], parts[1]-1, parts[2]);
-
-if(d.getDay() !== 6){
-alert("Nur Samstag möglich!");
-this.value="";
-}
-
-});
 
 // --------------------
 // BUTTON
@@ -190,12 +266,12 @@ return;
 let { error } = await supabaseClient
 .from("buchungen")
 .insert([{
-    datum,
-    vorname,
-    nachname,
-    telefon,
-    adresse,
-    zeit
+datum,
+vorname,
+nachname,
+telefon,
+adresse,
+zeit
 }]);
 
 if(error){
