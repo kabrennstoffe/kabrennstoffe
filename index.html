@@ -163,8 +163,9 @@ function startKalender(){
 
 }
     
-document.getElementById("datum").addEventListener("change", function(){
-    aktualisierePlaetze(this.value);
+document.getElementById("datum").addEventListener("change", aktualisiereZeitPlaetze);
+document.getElementById("zeit").addEventListener("change", aktualisiereZeitPlaetze);
+
 });
 startKalender();
     
