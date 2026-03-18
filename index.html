@@ -91,41 +91,37 @@ const MAX_TERMINE_PRO_SAMSTAG = 5;
 // Funktion: Buchungen laden
 async function ladeAusgebuchteSamstage() {
 
-let { data, error } = await supabaseClient
-.from("buchungen")
-.select("datum");
+    let { data, error } = await supabaseClient
+        .from("buchungen")
+        .select("datum");
 
-if(error){
-console.log(error);
-return [];
-}
+    if(error){
+        console.log(error);
+        return [];
+    }
 
-let zaehler = {};
+    let zaehler = {};
 
-data.forEach(e => {
-if(!zaehler[e.datum]){
-zaehler[e.datum] = 0;
-}
-zaehler[e.datum]++;
-});
+    data.forEach(e => {
+        if(!zaehler[e.datum]){
+            zaehler[e.datum] = 0;
+        }
+        zaehler[e.datum]++;
+    });
 
-return zaehler;
+    return zaehler;
 }
 
 // Kalender starten
 async function starteKalender() {
 
     let belegung = await ladeAusgebuchteSamstage();
-// Funktion: Start Kalender
-    
-function startKalender(){
 
-flatpickr("#datum", {
+    flatpickr("#datum", {
 
-dateFormat: "Y-m-d",
+        dateFormat: "Y-m-d",
 
-        // Nur zukünftige Samstage erlauben
-enable: [
+        enable: [
             function(date) {
                 return date.getDay() === 6;
             }
@@ -133,42 +129,30 @@ enable: [
 
         disable: [
             function(date) {
-            function(date){
 
                 let iso = date.toISOString().split("T")[0];
-                const heute = new Date();
-                heute.setHours(0,0,0,0);
 
                 // Vergangenheit sperren
                 if(date < new Date().setHours(0,0,0,0)){
                     return true;
-                // Nur Samstag
-                if(date.getDay() !== 6){
-                    return false;
-}
+                }
 
                 // Wenn Samstag voll → deaktivieren
                 if(belegung[iso] >= MAX_TERMINE_PRO_SAMSTAG){
                     return true;
-                // Keine Vergangenheit
-                if(date < heute){
-                    return false;
-}
+                }
 
                 return date.getDay() !== 6;
-                return true;
-}
-],
+            }
+        ],
 
-disableMobile: true
+        disableMobile: true
 
-});
-
+    });
 }
 
 starteKalender();
-startKalender();
-
+    
 // --------------------
 // Firmenkoordinaten
 // --------------------
@@ -205,6 +189,30 @@ Math.cos(lat2*Math.PI/180) *
 Math.sin(dLon/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
+
+// --------------------
+// Samstag prüfen
+// --------------------
+flatpickr("#datum", {
+    dateFormat: "Y-m-d",
+
+    // Nur Samstage erlauben
+    enable: [
+        function(date) {
+            return date.getDay() === 6; // 6 = Samstag
+        }
+    ],
+
+    // Andere Tage grau machen
+    disable: [
+        function(date) {
+            return date.getDay() !== 6;
+        }
+    ],
+
+    // Optional: verhindert Mobile-Probleme
+    disableMobile: true
+});
 
 // --------------------
 // BUTTON
