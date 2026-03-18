@@ -87,10 +87,49 @@ const supabaseClient = supabase.createClient(
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla2p5eWlvdm1tc21tamdybXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc5MzAsImV4cCI6MjA4OTMxMzkzMH0.E6aDb2tMI3tByJaZkzl1BCGCvWIoxQrXknn1xo5ocBs"
 );
 
-const MAX_TERMINE_PRO_SAMSTAG = 5;
+// 🔥 LIMIT PRO ZEITFENSTER
+const MAX_TERMINE_PRO_ZEITFENSTER = 5;
 
-// Funktion: Buchungen laden
-    
+// --------------------
+// KALENDER
+// --------------------
+function startKalender(){
+
+    flatpickr("#datum", {
+
+        dateFormat: "Y-m-d",
+
+        enable: [
+            function(date){
+
+                const heute = new Date();
+                heute.setHours(0,0,0,0);
+
+                // nur Samstag
+                if(date.getDay() !== 6){
+                    return false;
+                }
+
+                // keine Vergangenheit
+                if(date < heute){
+                    return false;
+                }
+
+                return true;
+            }
+        ],
+
+        disableMobile: true
+    });
+
+}
+
+startKalender();
+
+
+// --------------------
+// PLÄTZE ANZEIGE (PRO ZEITFENSTER)
+// --------------------
 async function aktualisiereZeitPlaetze(){
 
     const datum = document.getElementById("datum").value;
@@ -128,165 +167,7 @@ async function aktualisiereZeitPlaetze(){
         btn.disabled = false;
     }
 }
-// Funktion: Start Kalender
-    
-function startKalender(){
 
-    flatpickr("#datum", {
-
-        dateFormat: "Y-m-d",
-
-        // Nur zukünftige Samstage erlauben
-        enable: [
-            function(date){
-
-                const heute = new Date();
-                heute.setHours(0,0,0,0);
-
-                // Nur Samstag
-                if(date.getDay() !== 6){
-                    return false;
-                }
-
-                // Keine Vergangenheit
-                if(date < heute){
-                    return false;
-                }
-
-                return true;
-            }
-        ],
-
-        disableMobile: true
-
-    });
-
-}
-    
+// Events
 document.getElementById("datum").addEventListener("change", aktualisiereZeitPlaetze);
 document.getElementById("zeit").addEventListener("change", aktualisiereZeitPlaetze);
-
-});
-startKalender();
-    
-// --------------------
-// Firmenkoordinaten
-// --------------------
-const firmenAdresse = "Marschallstr 2 Dortmund";
-const maximalerRadius = 30;
-
-let firmenLat = null;
-let firmenLon = null;
-
-async function ladeFirma(){
-try{
-let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firmenAdresse)}`);
-let data = await res.json();
-if(data.length>0){
-firmenLat = parseFloat(data[0].lat);
-firmenLon = parseFloat(data[0].lon);
-}
-}catch(e){
-console.log("Fehler Firma:",e);
-}
-}
-ladeFirma();
-
-// --------------------
-// Distanzberechnung
-// --------------------
-function distanz(lat1, lon1, lat2, lon2){
-const R = 6371;
-const dLat = (lat2-lat1)*Math.PI/180;
-const dLon = (lon2-lon1)*Math.PI/180;
-const a = Math.sin(dLat/2)**2 +
-Math.cos(lat1*Math.PI/180) *
-Math.cos(lat2*Math.PI/180) *
-Math.sin(dLon/2)**2;
-return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-// --------------------
-// BUTTON
-// --------------------
-document.getElementById("btn").addEventListener("click", async function(){
-
-let meldung = document.getElementById("meldung");
-let btn = this;
-
-try{
-
-let datum = document.getElementById("datum").value;
-let vorname = document.getElementById("vorname").value.trim();
-let nachname = document.getElementById("nachname").value.trim();
-let telefon = document.getElementById("telefon").value.trim();
-let adresse = document.getElementById("adresse").value.trim();
-let zeit = document.getElementById("zeit").value;
-
-if(!datum || !vorname || !nachname || !telefon || !adresse){
-meldung.innerText="Bitte alle Felder ausfüllen";
-return;
-}
-
-if(!firmenLat){
-meldung.innerText="System lädt noch, bitte erneut versuchen";
-return;
-}
-
-meldung.innerText="⏳ Prüfe...";
-btn.disabled=true;
-
-// Adresse prüfen
-let geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresse)}`);
-let geoData = await geo.json();
-
-if(geoData.length===0){
-meldung.innerText="Adresse nicht gefunden";
-btn.disabled=false;
-return;
-}
-
-let kundenLat = parseFloat(geoData[0].lat);
-let kundenLon = parseFloat(geoData[0].lon);
-
-let entfernung = distanz(firmenLat,firmenLon,kundenLat,kundenLon);
-
-if(entfernung > maximalerRadius){
-meldung.innerText="Außerhalb Liefergebiet (30km)";
-btn.disabled=false;
-return;
-}
-
-// Speichern
-let { error } = await supabaseClient
-.from("buchungen")
-.insert([{
-    datum,
-    vorname,
-    nachname,
-    telefon,
-    adresse,
-    zeit
-}]);
-
-if(error){
-console.log(error);
-meldung.innerText="Fehler: " + error.message;
-}else{
-meldung.innerText="✅ Termin erfolgreich gespeichert!";
-}
-
-btn.disabled=false;
-
-}catch(err){
-console.log(err);
-meldung.innerText="Systemfehler";
-btn.disabled=false;
-}
-
-});
-
-</script>
-
-</body>
-</html>
