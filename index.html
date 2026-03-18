@@ -59,6 +59,7 @@ button{
 <h2>📅 Termin buchen</h2>
 
 <input type="date" id="datum" placeholder="Datum Wählen" readonly> 
+<div id="plaetzeInfo" style="margin:8px 0; font-weight:bold;"></div>
 <input type="text" id="vorname" placeholder="Vorname">
 <input type="text" id="nachname" placeholder="Nachname">
 <input type="tel" id="telefon" placeholder="Telefon">
@@ -89,29 +90,36 @@ const supabaseClient = supabase.createClient(
 const MAX_TERMINE_PRO_SAMSTAG = 5;
 
 // Funktion: Buchungen laden
-async function ladeAusgebuchteSamstage() {
+async function aktualisierePlaetze(gewähltesDatum){
+
+    const info = document.getElementById("plaetzeInfo");
+
+    if(!gewähltesDatum){
+        info.innerText = "";
+        return;
+    }
 
     let { data, error } = await supabaseClient
         .from("buchungen")
-        .select("datum");
+        .select("id")
+        .eq("datum", gewähltesDatum);
 
     if(error){
         console.log(error);
-        return [];
+        return;
     }
 
-    let zaehler = {};
+    let belegt = data.length;
+    let frei = MAX_TERMINE_PRO_SAMSTAG - belegt;
 
-    data.forEach(e => {
-        if(!zaehler[e.datum]){
-            zaehler[e.datum] = 0;
-        }
-        zaehler[e.datum]++;
-    });
-
-    return zaehler;
+    if(frei <= 0){
+        info.style.color = "red";
+        info.innerText = "🔴 Ausgebucht";
+    }else{
+        info.style.color = "green";
+        info.innerText = "🟢 Noch " + frei + " Plätze frei";
+    }
 }
-
 // Funktion: Start Kalender
     
 function startKalender(){
@@ -146,7 +154,10 @@ function startKalender(){
     });
 
 }
-
+    
+document.getElementById("datum").addEventListener("change", function(){
+    aktualisierePlaetze(this.value);
+});
 startKalender();
     
 // --------------------
