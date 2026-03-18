@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminbuchung</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#eef2f7;
+    padding:15px;
+}
+
+.container{
+    max-width:500px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:12px;
+}
+
+h2{
+    text-align:center;
+}
+
+input,select,button{
+    width:100%;
+    padding:14px;
+    margin:6px 0;
+    font-size:16px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button{
+    background:#2e5d44;
+    color:white;
+    border:none;
+    font-weight:bold;
+}
+
+#meldung{
+    margin-top:10px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>📅 Termin buchen</h2>
+
+<input type="date" id="datum">
+<input type="text" id="vorname" placeholder="Vorname">
+<input type="text" id="nachname" placeholder="Nachname">
+<input type="tel" id="telefon" placeholder="Telefon">
+<input type="text" id="adresse" placeholder="Adresse">
+
+<select id="zeit">
+<option value="08-12">08–12</option>
+<option value="12-16">12–16</option>
+</select>
+
+<button id="btn">Termin anfragen</button>
+
+<div id="meldung"></div>
+
+</div>
+
+<script>
+
+alert("JS läuft");
+
+// --------------------
+// Supabase EINSTELLEN
+// --------------------
+const supabaseClient = supabase.createClient(
+"https://xekjyyiovmmsmmjgrmyz.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla2p5eWlvdm1tc21tamdybXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc5MzAsImV4cCI6MjA4OTMxMzkzMH0.E6aDb2tMI3tByJaZkzl1BCGCvWIoxQrXknn1xo5ocBs"
+);
+
+// --------------------
+// Firmenkoordinaten
+// --------------------
+const firmenAdresse = "Marschallstr 2 Dortmund";
+const maximalerRadius = 30;
+
+let firmenLat = null;
+let firmenLon = null;
+
+async function ladeFirma(){
+try{
+let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firmenAdresse)}`);
+let data = await res.json();
+if(data.length>0){
+firmenLat = parseFloat(data[0].lat);
+firmenLon = parseFloat(data[0].lon);
+}
+}catch(e){
+console.log("Fehler Firma:",e);
+}
+}
+ladeFirma();
+
+// --------------------
+// Distanzberechnung
+// --------------------
+function distanz(lat1, lon1, lat2, lon2){
+const R = 6371;
+const dLat = (lat2-lat1)*Math.PI/180;
+const dLon = (lon2-lon1)*Math.PI/180;
+const a = Math.sin(dLat/2)**2 +
+Math.cos(lat1*Math.PI/180) *
+Math.cos(lat2*Math.PI/180) *
+Math.sin(dLon/2)**2;
+return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// --------------------
+// Samstag prüfen
+// --------------------
+document.getElementById("datum").addEventListener("change", function(){
+
+let parts = this.value.split("-");
+let d = new Date(parts[0], parts[1]-1, parts[2]);
+
+if(d.getDay() !== 6){
+alert("Nur Samstag möglich!");
+this.value="";
+}
+
+});
+
+// --------------------
+// BUTTON
+// --------------------
+document.getElementById("btn").addEventListener("click", async function(){
+
+let meldung = document.getElementById("meldung");
+let btn = this;
+
+try{
+
+let datum = document.getElementById("datum").value;
+let vorname = document.getElementById("vorname").value.trim();
+let nachname = document.getElementById("nachname").value.trim();
+let telefon = document.getElementById("telefon").value.trim();
+let adresse = document.getElementById("adresse").value.trim();
+let zeit = document.getElementById("zeit").value;
+
+if(!datum || !vorname || !nachname || !telefon || !adresse){
+meldung.innerText="Bitte alle Felder ausfüllen";
+return;
+}
+
+if(!firmenLat){
+meldung.innerText="System lädt noch, bitte erneut versuchen";
+return;
+}
+
+meldung.innerText="⏳ Prüfe...";
+btn.disabled=true;
+
+// Adresse prüfen
+let geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresse)}`);
+let geoData = await geo.json();
+
+if(geoData.length===0){
+meldung.innerText="Adresse nicht gefunden";
+btn.disabled=false;
+return;
+}
+
+let kundenLat = parseFloat(geoData[0].lat);
+let kundenLon = parseFloat(geoData[0].lon);
+
+let entfernung = distanz(firmenLat,firmenLon,kundenLat,kundenLon);
+
+if(entfernung > maximalerRadius){
+meldung.innerText="Außerhalb Liefergebiet (30km)";
+btn.disabled=false;
+return;
+}
+
+// Speichern
+let { error } = await supabaseClient
+.from("buchungen")
+.insert([{
+    datum,
+    vorname,
+    nachname,
+    telefon,
+    adresse,
+    zeit
+}]);
+
+if(error){
+console.log(error);
+meldung.innerText="Fehler: " + error.message;
+}else{
+meldung.innerText="✅ Termin erfolgreich gespeichert!";
+}
+
+btn.disabled=false;
+
+}catch(err){
+console.log(err);
+meldung.innerText="Systemfehler";
+btn.disabled=false;
+}
+
+});
+
+</script>
+
+</body>
+</html>
